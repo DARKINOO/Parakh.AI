@@ -1,0 +1,92 @@
+/* Navbar Styles */
+nav {
+    width: 100%;
+    height: 60px;
+    background: #005f9e; /* Blue background for header */
+    color: #ffffff;
+    padding: 0 20px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between; /* Space between logo and menu */
+    z-index: 10;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+nav .logo {
+    width: 150px;
+    height: auto;
+}
+
+nav ul {
+    display: flex;
+    align-items: center;
+    list-style: none;
+    gap: 20px; /* Space between menu items */
+    margin: 0;
+    padding: 0;
+}
+
+nav ul li {
+    color: #ffffff;
+    font-size: 16px;
+    cursor: pointer;
+    transition: color 0.3s ease;
+}
+
+nav ul li:hover {
+    color: #00aaff; /* Bright blue hover effect */
+}
+
+.login-button {
+    background: #003f6f; /* Slightly darker blue */
+    color: #ffffff;
+    border: none;
+    border-radius: 15px;
+    padding: 8px 20px;
+    cursor: pointer;
+    transition: background 0.3s ease;
+    font-size: 14px;
+    margin-left: 20px; /* Spacing from menu */
+}
+
+.login-button:hover {
+    background: #00aaff; /* Bright blue on hover */
+}
+
+/* About Us Section */
+.about-us-section {
+    margin: 100px auto; /* Space from navbar and centered vertically */
+    padding: 40px 20px;
+    background: linear-gradient(to right, #001f3f, #005f9e); /* Blue-black gradient */
+    color: #ffffff;
+    border-radius: 15px;
+    max-width: 800px;
+    text-align: center;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+}
+
+.about-us-section h2 {
+    font-size: 36px;
+    font-weight: bold;
+    color: #00aaff; /* Bright blue for heading */
+    margin-bottom: 20px;
+}
+
+.about-us-section p {
+    font-size: 18px;
+    color: #dcdcdc; /* Light gray for description */
+    line-height: 1.6;
+    margin: 0 auto;
+}
+body {
+    margin: 0;
+    padding: 0;
+    font-family: Arial, sans-serif;
+    background: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), 
+                url('/path-to-your-image/A_futuristic_illustration_showing_a_person_sitting.png') no-repeat center center fixed;
+    background-size: cover;
+    color: #ffffff; /* Ensure text is readable over the background */
+}
