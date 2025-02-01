@@ -1,24 +1,81 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Bot, Clock, CheckCircle } from 'lucide-react';
+import { Bot, Clock, CheckCircle, Mic, MicOff } from 'lucide-react';
+import { useLoading } from '../context/LoadingProvider'
 
 function InterviewPreparationPage() {
     const { resumeId } = useParams();
     const navigate = useNavigate();
+    const { startLoading, stopLoading } = useLoading();
 
     // State Management
     const [questions, setQuestions] = useState([]);
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
     const [userAnswers, setUserAnswers] = useState([]);
     const [currentAnswer, setCurrentAnswer] = useState('');
-    const [interviewCompleted, setInterviewCompleted] = useState(false);
-    const [finalEvaluation, setFinalEvaluation] = useState(null);
-    
     const [displayedQuestion, setDisplayedQuestion] = useState('');
     const [isTypingQuestion, setIsTypingQuestion] = useState(true);
+    
     // Timer State
-    const [timeRemaining, setTimeRemaining] = useState(60); // 5 minutes per question
+    const [timeRemaining, setTimeRemaining] = useState(180);
     const [timerActive, setTimerActive] = useState(false);
+    const [hasStartedTyping, setHasStartedTyping] = useState(false);
+
+    // Speech recognition state
+    const [isListening, setIsListening] = useState(false);
+    const [recognition, setRecognition] = useState(null);
+
+    // Initialize speech recognition
+    useEffect(() => {
+        if ('webkitSpeechRecognition' in window) {
+            const recognition = new window.webkitSpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+
+            recognition.onresult = (event) => {
+                let transcript = '';
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    if (event.results[i].isFinal) {
+                        transcript += event.results[i][0].transcript + ' ';
+                    }
+                }
+                if (transcript) {
+                    setCurrentAnswer(prev => prev + transcript);
+                    if (!hasStartedTyping && !isTypingQuestion) {
+                        setHasStartedTyping(true);
+                        setTimerActive(true);
+                    }
+                }
+            };
+
+            recognition.onerror = (event) => {
+                console.error('Speech Recognition Error:', event.error);
+                setIsListening(false);
+            };
+
+            recognition.onend = () => {
+                setIsListening(false);
+            };
+
+            setRecognition(recognition);
+        }
+    }, []);
+
+    // Toggle speech recognition
+    const toggleListening = () => {
+        if (!recognition) {
+            alert('Speech recognition is not supported in your browser');
+            return;
+        }
+
+        if (isListening) {
+            recognition.stop();
+            setIsListening(false);
+        } else {
+            recognition.start();
+            setIsListening(true);
+        }
+    };
 
     useEffect(() => {
         if (questions.length > 0 && isTypingQuestion) {
@@ -31,10 +88,8 @@ function InterviewPreparationPage() {
                 } else {
                     clearInterval(typingInterval);
                     setIsTypingQuestion(false);
-                    setTimerActive(true);
                 }
-            }, 20); // Typing speed
-
+            }, 20);
 
             return () => clearInterval(typingInterval);
         }
@@ -47,13 +102,11 @@ function InterviewPreparationPage() {
                 const response = await fetch(`/api/resume/interview-questions/${resumeId}`);
                 const data = await response.json();
                 
-                // Clean questions (remove any intro/conclusion)
                 const cleanQuestions = data.questions
                     .map(q => q.replace(/^(Introduction:|Conclusion:)/i, '').trim())
                     .filter(q => q.length > 10);
                 
                 setQuestions(cleanQuestions);
-                // Initialize answers array
                 setUserAnswers(new Array(cleanQuestions.length).fill(''));
             } catch (error) {
                 console.error('Error fetching questions:', error);
@@ -63,9 +116,7 @@ function InterviewPreparationPage() {
         fetchInterviewQuestions();
     }, [resumeId]);
 
-    
-
-    // Timer Logic
+    // Timer Logic - Now starts when user starts typing
     useEffect(() => {
         let timer;
         if (timerActive && timeRemaining > 0) {
@@ -73,33 +124,39 @@ function InterviewPreparationPage() {
                 setTimeRemaining(prev => prev - 1);
             }, 1000);
         } else if (timeRemaining === 0) {
-            // Auto submit answer when time runs out
             handleNextQuestionOrSubmit();
         }
 
         return () => clearInterval(timer);
     }, [timerActive, timeRemaining]);
 
-    // Reset timer when moving to next question
+    // Reset states when moving to next question
     useEffect(() => {
-        setTimeRemaining(180); // Reset to 5 minutes
-        setTimerActive(true);
+        setTimeRemaining(180);
+        setTimerActive(false);
+        setHasStartedTyping(false);
         setDisplayedQuestion('');
         setIsTypingQuestion(true);
     }, [currentQuestionIndex]);
 
-    // Combine Next Question and Submit Logic
+    const handleAnswerChange = (e) => {
+        setCurrentAnswer(e.target.value);
+        
+        // Start timer on first keystroke
+        if (!hasStartedTyping && !isTypingQuestion) {
+            setHasStartedTyping(true);
+            setTimerActive(true);
+        }
+    };
+
     const handleNextQuestionOrSubmit = () => {
-        // Save current answer (use current answer or empty string if time ran out)
         const updatedAnswers = [...userAnswers];
         updatedAnswers[currentQuestionIndex] = currentAnswer || '';
         setUserAnswers(updatedAnswers);
 
-        // Move to next question or submit
         if (currentQuestionIndex < questions.length - 1) {
             setCurrentQuestionIndex(prev => prev + 1);
-            setCurrentAnswer(''); // Reset current answer
-            // setTimerActive(true);
+            setCurrentAnswer('');
         } else {
             handleSubmitInterview();
         }
@@ -112,7 +169,7 @@ function InterviewPreparationPage() {
     };
 
     // Timer Circle Component
-    const TimerCircle = ({ timeRemaining, totalTime = 120 }) => {
+    const TimerCircle = ({ timeRemaining, totalTime = 180 }) => {
         const percentage = (timeRemaining / totalTime) * 100;
         return (
             <div className="relative text-white w-16 h-16">
@@ -142,10 +199,9 @@ function InterviewPreparationPage() {
         );
     };
 
-    // Submit Full Interview
     const handleSubmitInterview = async () => {
         try {
-            // Ensure last answer is saved
+            startLoading(); // Show loading overlay
             const finalAnswers = [...userAnswers];
             finalAnswers[currentQuestionIndex] = currentAnswer || '';
 
@@ -161,143 +217,87 @@ function InterviewPreparationPage() {
             });
 
             const data = await response.json();
+            stopLoading(); // Hide loading overlay
             
-            const evaluation = {
-                overallScore: extractScoreFromText(data.fullEvaluation),
-                fullEvaluation: data.fullEvaluation,
-                technicalScore: extractScoreSection(data.fullEvaluation, 'Technical Skills'),
-                communicationScore: extractScoreSection(data.fullEvaluation, 'Communication Skills'),
-                culturalFitScore: extractScoreSection(data.fullEvaluation, 'Cultural Fit'),
-                performanceNote: extractPerformanceNote(data.fullEvaluation)
-            };
-
             navigate('/dashboard', { 
                 state: { 
-                    interviewData: evaluation 
+                    interviewData: data 
                 }
             });
         } catch (error) {
             console.error('Interview Submission Error:', error);
+            stopLoading(); // Ensure loading overlay is hidden even if there's an error
         }
     };
 
-    const extractScoreFromText = (text) => {
-        // Try to extract overall score from the evaluation text
-        const scoreRegexes = [
-            /Overall Performance Score:\s*(\d+)/i,
-            /Overall\s*Score:\s*(\d+)/i,
-            /Score:\s*(\d+)/i
-        ];
-    
-        for (const regex of scoreRegexes) {
-            const match = text.match(regex);
-            if (match) {
-                return parseInt(match[1], 10);
-            }
-        }
-    
-        // Fallback to a default score if no score is found
-        return 50;
-    };
-
-    // Helper function to extract score from evaluation text
-    const extractScoreSection = (text, section) => {
-        const regex = new RegExp(`${section}:\\s*(\\d+)`, 'i');
-        const match = text.match(regex);
-        return match ? parseInt(match[1], 10) : 50;
-    };
-    
-    const extractPerformanceNote = (text) => {
-        const lines = text.split('\n');
-        const noteLines = lines.filter(line => 
-            !line.match(/Score|Technical|Communication|Cultural|Strengths|Improvement/i)
-        );
-        return noteLines.slice(0, 3).join(' ').trim() || 'Solid performance with room for growth.';
-    };
-
-    // Render Final Evaluation
-    // if (interviewCompleted && finalEvaluation) {
-    //     return (
-    //         <div className="container mx-auto p-6 bg-gradient-to-br from-blue-50 to-blue-100 min-h-screen flex items-center justify-center">
-    //             <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-2xl w-full">
-    //                 <div className="flex items-center justify-center mb-6">
-    //                     <CheckCircle className="text-green-500 w-16 h-16 mr-4" />
-    //                     <h2 className="text-3xl font-bold text-blue-600">Interview Completed</h2>
-    //                 </div>
-                    
-    //                 <div className="text-center mb-6">
-    //                     <div className="text-6xl font-bold text-blue-500 bg-blue-100 p-6 rounded-lg inline-block">
-    //                         {finalEvaluation.overallScore}/100
-    //                     </div>
-    //                 </div>
-
-    //                 <div className="bg-gray-50 p-6 rounded-lg mb-6">
-    //                     <h3 className="text-xl font-semibold mb-4">Detailed Feedback</h3>
-    //                     <p className="whitespace-pre-wrap">{finalEvaluation.fullEvaluation}</p>
-    //                 </div>
-
-    //                 <button 
-    //                     onClick={() => navigate('/')}
-    //                     className="w-full bg-blue-500 text-white py-3 rounded-lg hover:bg-blue-600 transition-colors"
-    //                 >
-    //                     Return to Home
-    //                 </button>
-    //             </div>
-    //         </div>
-    //     );
-    // }
-
-    // Interview in Progress
     return (
-        <div className=" w-full p-6 bg-black h-screen flex items-center justify-center">
-        <div className="bg-gray-900 rounded-2xl shadow-2xl text-white p-8 w-full">
-            <div className="flex justify-between items-center mb-6">
-                <div className="flex items-center">
-                    <Bot className="text-blue-500 w-12 h-12 mr-4 animate-pulse" />
-                    <h2 className="text-2xl font-bold text-white">
-                        Question {currentQuestionIndex + 1}/{questions.length}
-                    </h2>
+        <div className="w-full p-6 bg-black h-screen flex items-center justify-center">
+            <div className="bg-gray-900 rounded-2xl shadow-2xl text-white p-8 w-full">
+                <div className="flex justify-between items-center mb-6">
+                    <div className="flex items-center">
+                        <Bot className="text-blue-500 w-12 h-12 mr-4 animate-pulse" />
+                        <h2 className="text-2xl font-bold text-white">
+                            Question {currentQuestionIndex + 1}/{questions.length}
+                        </h2>
+                    </div>
+                    {(hasStartedTyping || timerActive) && <TimerCircle timeRemaining={timeRemaining} />}
                 </div>
-                <TimerCircle timeRemaining={timeRemaining} />
-            </div>
 
-            <div className="mb-6 h-48 w-[100%] overflow-y-auto border-2 border-blue-100 rounded-lg p-4">
+                <div className="mb-6 h-48 w-[100%] overflow-y-auto border-2 border-blue-100 rounded-lg p-4">
                     <p className="text-lg text-white">
                         {displayedQuestion}
                         {isTypingQuestion && <span className="animate-blink text-white">|</span>}
                     </p>
                 </div>
 
-            <textarea 
-                className="w-full p-4 border-2 border-blue-200 rounded-lg min-h-[200px] mb-6 focus:ring-2 focus:ring-blue-400 transition-all"
-                placeholder="Type your answer here..."
-                value={currentAnswer}
-                onChange={(e) => setCurrentAnswer(e.target.value)}
-                disabled={isTypingQuestion}
-            />
+                <div className="relative">
+                    <textarea 
+                        className="w-full p-4 border-2 border-blue-200 rounded-lg min-h-[200px] mb-6 focus:ring-2 focus:ring-blue-400 transition-all pr-12"
+                        placeholder="Type your answer here..."
+                        value={currentAnswer}
+                        onChange={handleAnswerChange}
+                        disabled={isTypingQuestion}
+                    />
+                    <button
+                        onClick={toggleListening}
+                        disabled={isTypingQuestion}
+                        className={`absolute right-3 top-3 p-2 rounded-full transition-all ${
+                            isListening 
+                                ? 'bg-red-500 hover:bg-red-600' 
+                                : 'bg-blue-500 hover:bg-blue-600'
+                        }`}
+                    >
+                        {isListening ? (
+                            <MicOff className="h-5 w-5 text-white" />
+                        ) : (
+                            <Mic className="h-5 w-5 text-white" />
+                        )}
+                    </button>
+                </div>
 
-            <div className="flex space-x-4">
-                {currentQuestionIndex < questions.length - 1 ? (
-                    <button 
-                        onClick={handleNextQuestionOrSubmit}
-                        disabled={isTypingQuestion}
-                        className="flex-1 bg-blue-500 text-white font-bold py-3 rounded-lg hover:bg-blue-600 transition-colors "
-                    >
-                        Next Question
-                    </button>
-                ) : (
-                    <button 
-                        onClick={handleNextQuestionOrSubmit}
-                        disabled={isTypingQuestion}
-                        className="flex-1 bg-green-500 text-white py-3 rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50"
-                    >
-                        Complete Interview
-                    </button>
-                )}
+                <div className="flex space-x-4">
+                    {currentQuestionIndex < questions.length - 1 ? (
+                        <button 
+                            onClick={handleNextQuestionOrSubmit}
+                            disabled={isTypingQuestion}
+                            className="flex-1 bg-blue-500 text-white font-bold py-3 rounded-lg hover:bg-blue-600 transition-colors"
+                        >
+                            Next Question
+                        </button>
+                    ) : (
+                        <button 
+                            onClick={handleNextQuestionOrSubmit}
+                            disabled={isTypingQuestion}
+                            className="flex-1 bg-green-500 text-white py-3 rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50"
+                        >
+                            Complete Interview
+                        </button>
+                    )}
+                </div>
             </div>
         </div>
-    </div>
     );
 }
+
 
 export default InterviewPreparationPage;

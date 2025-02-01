@@ -1,263 +1,331 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Chart } from 'chart.js/auto';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { 
-    Clock, 
-    BarChart2, 
-    PieChart, 
-    LineChart, 
-    MessageCircle, 
-    Send, 
-    Award 
+import {
+    Trophy,
+    Target,
+    BarChart2,
+    LineChart,
+    MessageCircle,
+    ThumbsUp,
+    ThumbsDown,
+    Star,
+    CheckCircle,
+    Brain,
+    Lightbulb,
+    ArrowUp,
+    Clock,
+    AlertCircle
 } from 'lucide-react';
+
+// Score category cards with proper data mapping
+const ScoreCard = ({ icon: Icon, title, score, description, color }) => (
+    <div className="bg-white/5 p-6 rounded-lg backdrop-blur-sm border border-white/10 hover:border-white/20 transition-all">
+        <div className="flex items-center gap-4">
+            <div className={`p-3 rounded-full ${color} bg-opacity-20`}>
+                <Icon className={`w-6 h-6 ${color}`} />
+            </div>
+            <div className="flex-1">
+                <h3 className="text-lg font-medium text-gray-200">{title}</h3>
+                <div className="flex items-end gap-2">
+                    <span className="text-2xl font-bold text-gray-100">{score}</span>
+                    <span className="text-sm text-gray-400">/100</span>
+                </div>
+            </div>
+        </div>
+        {description && (
+            <p className="mt-2 text-sm text-gray-400">{description}</p>
+        )}
+    </div>
+);
+
+const FeedbackList = ({ title, items, icon: Icon, colorClass }) => (
+    <div className="bg-white/5 p-6 rounded-lg backdrop-blur-sm border border-white/10">
+        <div className={`flex items-center gap-2 mb-4 ${colorClass}`}>
+            <Icon className="w-5 h-5" />
+            <h3 className="text-lg font-medium">{title}</h3>
+        </div>
+        <ul className="space-y-3">
+            {items?.length > 0 ? (
+                items.map((item, index) => (
+                    <li key={index} className="flex items-start gap-2">
+                        <ArrowUp className="w-4 h-4 mt-1 text-blue-400 shrink-0" />
+                        <span className="text-gray-300">{item}</span>
+                    </li>
+                ))
+            ) : (
+                <li className="text-gray-400 italic">No data available</li>
+            )}
+        </ul>
+    </div>
+);
+
+const DetailedFeedback = ({ title, content, icon: Icon }) => (
+    <div className="bg-white/5 p-6 rounded-lg backdrop-blur-sm border border-white/10 h-full">
+        <div className="flex items-center gap-2 mb-4 text-blue-400">
+            <Icon className="w-5 h-5" />
+            <h3 className="text-lg font-medium">{title}</h3>
+        </div>
+        <p className="text-gray-300 leading-relaxed whitespace-pre-line">
+            {content || 'Not available'}
+        </p>
+    </div>
+);
 
 const InterviewDashboard = () => {
     const navigate = useNavigate();
-    const [chatMessages, setChatMessages] = useState([]);
-    const [userInput, setUserInput] = useState('');
     const location = useLocation();
     const [interviewData, setInterviewData] = useState(null);
-
-    // Chart References
-    const hiringTrendsChartRef = useRef(null);
-    const feedbackChartRef = useRef(null);
-    const leaderboardChartRef = useRef(null);
-
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    
+    const skillsChartRef = useRef(null);
+    const progressChartRef = useRef(null);
 
     useEffect(() => {
-        // Extract interview data from navigation state
         const data = location.state?.interviewData;
         if (data) {
+            console.log("Received interview data:", data); // Debug log
             setInterviewData(data);
+            setLoading(false);
+        } else {
+            setError("No interview data found");
+            setLoading(false);
         }
     }, [location]);
 
-    // Chat Message Handling
-    // const sendMessage = () => {
-    //     if (userInput.trim()) {
-    //         const newMessages = [
-    //             ...chatMessages, 
-    //             { type: 'user', text: userInput },
-    //             { type: 'ai', text: 'AI: Thank you for your' }
-    //         ];
-    //         setChatMessages(newMessages);
-    //         setUserInput('');
-    //     }
-    // };
-
-    // Initialize Charts
     useEffect(() => {
-        if (interviewData) {
-            // Hiring Trends Chart
-            const hiringTrendsChart = new Chart(hiringTrendsChartRef.current, {
-                type: 'line',
-                data: {
-                    labels: 'Skills Performance',
-                    datasets: [{
-                        label: 'Hiring Trends',
-                        data: [
-                            interviewData.technicalScore || 50, 
-                            interviewData.communicationScore || 50, 
-                            interviewData.culturalFitScore || 50
-                        ],
-                        borderColor: 'rgba(54, 162, 235, 1)',
-                        tension: 0.1
-                    }]
+        if (interviewData && skillsChartRef.current && progressChartRef.current) {
+            const chartConfigs = [
+                {
+                    ref: skillsChartRef,
+                    config: {
+                        type: 'radar',
+                        data: {
+                            labels: [
+                                'Technical Skills',
+                                'Communication',
+                                'Problem Solving',
+                                'Cultural Fit',
+                                'Leadership'
+                            ],
+                            datasets: [{
+                                label: 'Performance',
+                                data: [
+                                    interviewData.technicalScore || 0,
+                                    interviewData.communicationScore || 0,
+                                    interviewData.problemSolvingScore || 0,
+                                    interviewData.culturalFitScore || 0,
+                                    interviewData.leadershipScore || 0
+                                ],
+                                backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                                borderColor: 'rgba(59, 130, 246, 0.8)',
+                                pointBackgroundColor: 'rgba(59, 130, 246, 1)',
+                            }]
+                        },
+                        options: {
+                            scales: {
+                                r: {
+                                    beginAtZero: true,
+                                    max: 100,
+                                    ticks: { stepSize: 20 },
+                                    grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                                    pointLabels: { color: 'rgba(255, 255, 255, 0.7)' }
+                                }
+                            },
+                            plugins: {
+                                legend: { display: false }
+                            }
+                        }
+                    }
                 },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: { position: 'top' }
+                {
+                    ref: progressChartRef,
+                    config: {
+                        type: 'line',
+                        data: {
+                            labels: ['Initial', 'Technical', 'Communication', 'Problem Solving', 'Final'],
+                            datasets: [{
+                                label: 'Interview Progress',
+                                data: [60, 
+                                    interviewData.technicalScore || 0,
+                                    interviewData.communicationScore || 0,
+                                    interviewData.problemSolvingScore || 0,
+                                    interviewData.overallScore || 0
+                                ],
+                                borderColor: 'rgba(16, 185, 129, 0.8)',
+                                tension: 0.4,
+                                fill: true,
+                                backgroundColor: 'rgba(16, 185, 129, 0.1)'
+                            }]
+                        },
+                        options: {
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    max: 100,
+                                    grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                                    ticks: { color: 'rgba(255, 255, 255, 0.7)' }
+                                },
+                                x: {
+                                    grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                                    ticks: { color: 'rgba(255, 255, 255, 0.7)' }
+                                }
+                            },
+                            plugins: {
+                                legend: { display: false }
+                            }
+                        }
                     }
                 }
+            ];
+
+            const charts = chartConfigs.map(({ ref, config }) => {
+                const ctx = ref.current.getContext('2d');
+                return new Chart(ctx, config);
             });
 
-            // Feedback Breakdown Chart
-            const feedbackChart = new Chart(feedbackChartRef.current, {
-                type: 'pie',
-                data: {
-                    labels: ['Technical Skills', 'Communication', 'Cultural Fit'],
-                    datasets: [{
-                        data: [
-                            interviewData.technicalScore || 35, 
-                            interviewData.communicationScore || 30, 
-                            interviewData.culturalFitScore || 30
-                        ],
-                        backgroundColor: [
-                            'rgba(75, 192, 192, 0.8)',
-                            'rgba(255, 205, 86, 0.8)',
-                            'rgba(255, 99, 132, 0.8)'
-                        ]
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: { position: 'top' }
-                    }
-                }
-            });
-
-            // Leaderboard Chart
-            const leaderboardChart = new Chart(leaderboardChartRef.current, {
-                type: 'bar',
-                data: {
-                    labels: ['Your Score', 'Average', 'Top Score'],
-                    datasets: [{
-                        label: 'Interview Scores',
-                        data: [
-                            interviewData.overallScore || 92, 
-                            85, 
-                            95
-                        ],
-                        backgroundColor: [
-                            'rgba(72, 187, 120, 0.8)',
-                            'rgba(56, 161, 105, 0.8)',
-                            'rgba(36, 135, 85, 0.8)'
-                        ]
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: { display: false }
-                    }
-                }
-            });
-
-            // Cleanup function
-            return () => {
-                hiringTrendsChart.destroy();
-                feedbackChart.destroy();
-                leaderboardChart.destroy();
-            };
+            return () => charts.forEach(chart => chart.destroy());
         }
     }, [interviewData]);
 
-    if (!interviewData) {
+    if (loading) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-blue-900 to-black text-gray-200 flex items-center justify-center">
-                <div className="text-center">
-                    <h2 className="text-2xl mb-4">No Interview Data Available</h2>
-                    <p className="mb-6">Please complete an interview first.</p>
-                    <button 
-                        onClick={() => navigate('/')}
-                        className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                        Return to Home
-                    </button>
+            <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black p-8 flex items-center justify-center">
+                <div className="flex items-center gap-3">
+                    <Clock className="w-6 h-6 animate-spin text-blue-400" />
+                    <span className="text-gray-200">Loading interview results...</span>
                 </div>
             </div>
         );
     }
 
+    if (error || !interviewData) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black p-8 flex items-center justify-center">
+                <div className="bg-white/5 p-6 rounded-lg backdrop-blur-sm border border-white/10 flex items-center gap-3">
+                    <AlertCircle className="text-red-400 w-6 h-6" />
+                    <p className="text-gray-300">{error || 'No interview data available. Please complete an interview first.'}</p>
+                </div>
+            </div>
+        );
+    }
+
+    // Debug log for feedback data
+    console.log("Detailed Feedback:", interviewData.detailedFeedback);
+    console.log("Full Evaluation:", interviewData.fullEvaluation);
+
     return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-900 to-black text-gray-200">
-            <header className="bg-gradient-to-r from-blue-900 to-black text-white p-4 text-center">
-                <h1 className="text-2xl font-bold animate-pulse">AI Interview Dashboard</h1>
-            </header>
+        <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black text-gray-200 p-8">
+            <div className="max-w-7xl mx-auto space-y-8">
+                <h2 className='text-4xl font-bold text-blue-300 text-center'>Interview Analysis</h2>
+                {/* Score Cards Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <ScoreCard
+                        icon={Trophy}
+                        title="Overall Score"
+                        score={interviewData.overallScore || 0}
+                        color="text-yellow-400"
+                    />
+                    <ScoreCard
+                        icon={Brain}
+                        title="Technical"
+                        score={interviewData.technicalScore || 0}
+                        color="text-blue-400"
+                    />
+                    <ScoreCard
+                        icon={MessageCircle}
+                        title="Communication"
+                        score={interviewData.communicationScore || 0}
+                        color="text-green-400"
+                    />
+                    <ScoreCard
+                        icon={Lightbulb}
+                        title="Problem Solving"
+                        score={interviewData.problemSolvingScore || 0}
+                        color="text-purple-400"
+                    />
+                </div>
 
-            <div className=" grid grid-cols-1 md:grid-cols-2 p-8">
-                {/* Interview Performance Overview */}
-                <div className="bg-gray-800 rounded-lg p-6 shadow-lg">
-                    <h2 className="text-xl font-semibold mb-4 flex items-center">
-                        <Award className="mr-2 text-blue-400" />
-                        Interview Performance
-                    </h2>
-                    <div className="text-center">
-                        <div className="text-5xl font-bold text-blue-400 mb-4">
-                            {interviewData?.overallScore || 92}/100
-                        </div>
-                        <p className="text-gray-400">
-                            {interviewData?.performanceNote || 'Great performance! Keep improving.'}
-                        </p>
+                {/* Charts Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="bg-white/5 p-6 rounded-lg backdrop-blur-sm border border-white/10">
+                        <h3 className="flex items-center gap-2 text-lg font-medium mb-4">
+                            <BarChart2 className="text-blue-400" />
+                            Skills Assessment
+                        </h3>
+                        <canvas ref={skillsChartRef}></canvas>
+                    </div>
+
+                    <div className="bg-white/5 p-6 rounded-lg backdrop-blur-sm border border-white/10">
+                        <h3 className="flex items-center gap-2 text-lg font-medium mb-4">
+                            <LineChart className="text-green-400" />
+                            Progress Analysis
+                        </h3>
+                        <canvas ref={progressChartRef}></canvas>
                     </div>
                 </div>
 
-                {/* AI Communication */}
-                {/* <div className="bg-gray-800 rounded-lg p-6 shadow-lg">
-                    <h2 className="text-xl font-semibold mb-4 flex items-center">
-                        <MessageCircle className="mr-2 text-green-400" />
-                        AI Communication
-                    </h2>
-                    <div className="h-48 overflow-y-auto border border-gray-700 rounded-lg p-4 mb-4">
-                        {chatMessages.map((msg, index) => (
-                            <div 
-                                key={index} 
-                                className={`mb-2 p-2 rounded-lg ${
-                                    msg.type === 'user' 
-                                        ? 'bg-blue-600 text-right' 
-                                        : 'bg-green-600 text-left'
-                                }`}
-                            >
-                                {msg.text}
-                            </div>
-                        ))}
-                    </div>
-                    <div className="flex">
-                        <input 
-                            type="text" 
-                            value={userInput}
-                            onChange={(e) => setUserInput(e.target.value)}
-                            className="flex-grow p-2 bg-gray-700 rounded-l-lg"
-                            placeholder="Ask about your interview..."
-                        />
-                        <button 
-                            onClick={sendMessage}
-                            className="bg-blue-600 p-2 rounded-r-lg"
-                        >
-                            <Send size={20} />
-                        </button>
-                    </div>
+                {/* Feedback Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <FeedbackList
+                        title="Key Strengths"
+                        items={interviewData.strengths}
+                        icon={ThumbsUp}
+                        colorClass="text-green-400"
+                    />
+                    <FeedbackList
+                        title="Areas for Improvement"
+                        items={interviewData.improvements}
+                        icon={ThumbsDown}
+                        colorClass="text-red-400"
+                    />
+                </div>
+
+                {/* Detailed Feedback */}
+                {/* <div className="grid grid-cols-1 gap-6">
+                    <DetailedFeedback
+                        title="Full Evaluation"
+                        content={interviewData.fullEvaluation}
+                        icon={Target}
+                    />
                 </div> */}
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 p-8">
-                {/* Hiring Trends */}
-                <div className="bg-gray-800 rounded-lg p-6 shadow-lg">
-                    <h2 className="text-xl font-semibold mb-4 flex items-center">
-                        <LineChart className="mr-2 text-blue-400" />
-                        Hiring Trends
-                    </h2>
-                    <canvas ref={hiringTrendsChartRef}></canvas>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {interviewData.detailedFeedback && (
+                        <>
+                            <DetailedFeedback
+                                title="Technical Assessment"
+                                content={interviewData.detailedFeedback.technical}
+                                icon={Brain}
+                            />
+                            <DetailedFeedback
+                                title="Communication Analysis"
+                                content={interviewData.detailedFeedback.communication}
+                                icon={MessageCircle}
+                            />
+                            <DetailedFeedback
+                                title="Problem-Solving Approach"
+                                content={interviewData.detailedFeedback.problemSolving}
+                                icon={Lightbulb}
+                            />
+                            <DetailedFeedback
+                                title="Overall Assessment"
+                                content={interviewData.detailedFeedback.overall}
+                                icon={Target}
+                            />
+                        </>
+                    )}
                 </div>
 
-                {/* Feedback Breakdown */}
-                <div className="bg-gray-800 rounded-lg p-6 shadow-lg">
-                    <h2 className="text-xl font-semibold mb-4 flex items-center">
-                        <PieChart className="mr-2 text-green-400" />
-                        Feedback Breakdown
-                    </h2>
-                    <canvas ref={feedbackChartRef}></canvas>
+                <div className="flex justify-center">
+                    <button
+                        onClick={() => navigate('/home')}
+                        className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all"
+                    >
+                        Return to Home
+                    </button>
                 </div>
-
-                {/* Leaderboard */}
-                <div className="bg-gray-800 rounded-lg p-6 shadow-lg">
-                    <h2 className="text-xl font-semibold mb-4 flex items-center">
-                        <BarChart2 className="mr-2 text-red-400" />
-                        Performance Comparison
-                    </h2>
-                    <canvas ref={leaderboardChartRef}></canvas>
-                </div>
-            </div>
-
-            {/* Detailed Evaluation */}
-            <div className="p-8">
-                <div className="bg-gray-800 rounded-lg p-6 shadow-lg">
-                    <h2 className="text-xl font-semibold mb-4">Detailed Evaluation</h2>
-                    <p className="text-gray-300 whitespace-pre-wrap">
-                        {interviewData?.fullEvaluation || 'No detailed evaluation available.'}
-                    </p>
-                </div>
-            </div>
-
-            <div className="text-center p-8">
-                <button 
-                    onClick={() => navigate('/')}
-                    className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                    Return to Home
-                </button>
             </div>
         </div>
     );
