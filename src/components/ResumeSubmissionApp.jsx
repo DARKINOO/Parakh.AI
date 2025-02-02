@@ -6,6 +6,8 @@ import { useLoading } from '../context/LoadingProvider';
 function ResumeSubmissionApp() {
   const { startLoading, stopLoading } = useLoading();
   const [resumeFile, setResumeFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState('');
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [jobPreferences, setJobPreferences] = useState({
     industry: '',
     position: '',
@@ -16,32 +18,55 @@ function ResumeSubmissionApp() {
     message: ''
   });
 
-  const handleFileUpload = (event) => {
-    const file = event.target.files[0];
+  // Clear file input when component unmounts
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
+
+  const validateFile = (file) => {
     const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-    const maxSize = 5 * 1024 * 1024;
+    const maxSize = 5 * 1024 * 1024; // 5MB
 
     if (!allowedTypes.includes(file.type)) {
-      setSubmissionStatus({
-        type: 'error',
-        message: 'Invalid file type. Please upload PDF or DOC files.'
-      });
-      return;
+      throw new Error('Invalid file type. Please upload PDF or DOC files.');
     }
 
     if (file.size > maxSize) {
-      setSubmissionStatus({
-        type: 'error',
-        message: 'File size exceeds 5MB limit.'
-      });
-      return;
+      throw new Error('File size exceeds 5MB limit.');
     }
 
-    setResumeFile(file);
-    setSubmissionStatus({
-      type: 'success',
-      message: `${file.name} uploaded successfully`
-    });
+    return true;
+  };
+
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    
+    try {
+      if (file) {
+        validateFile(file);
+        
+        // Create preview URL
+        const filePreviewUrl = URL.createObjectURL(file);
+        setPreviewUrl(filePreviewUrl);
+        
+        setResumeFile(file);
+        setSubmissionStatus({
+          type: 'success',
+          message: `${file.name} selected successfully`
+        });
+        setUploadProgress(0);
+      }
+    } catch (error) {
+      setSubmissionStatus({
+        type: 'error',
+        message: error.message
+      });
+      event.target.value = null; // Reset file input
+    }
   };
 
   const handlePreferenceChange = (e) => {
@@ -55,6 +80,14 @@ function ResumeSubmissionApp() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    if (!resumeFile) {
+      setSubmissionStatus({
+        type: 'error',
+        message: 'Please select a resume file'
+      });
+      return;
+    }
+
     if (Object.values(jobPreferences).some(value => value === '')) {
       setSubmissionStatus({
         type: 'error',
@@ -69,42 +102,52 @@ function ResumeSubmissionApp() {
 
     try {
       startLoading();
-      const response = await fetch('http://localhost:4000/api/resume/submit-resume', {
+      
+      const response = await fetch('/api/resume/submit-resume', {
         method: 'POST',
         body: formData,
-        credentials: 'include'
+        credentials: 'include',
       });
 
       if (!response.ok) {
-        throw new Error(await response.text() || 'Submission failed');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Submission failed');
       }
 
       const data = await response.json();
+      
+      // Clear the file input and preview
+      setResumeFile(null);
+      setPreviewUrl('');
+      setUploadProgress(0);
+      
       setSubmissionStatus({
         type: 'success',
-        message: data.message || 'Resume submitted successfully'
+        message: 'Resume uploaded successfully!'
       });
-      
-      if (response.ok) {
+
+      // Redirect to interview page
+      if (data.resumeId) {
         window.location.href = `/interview/${data.resumeId}`;
-        stopLoading();
       }
+
     } catch (error) {
       console.error('Submission Error:', error);
       setSubmissionStatus({
         type: 'error',
-        message: error.message || 'Network error. Please try again.'
+        message: error.message || 'Failed to upload resume. Please try again.'
       });
+      setUploadProgress(0);
     } finally {
       stopLoading();
     }
   };
 
+  // Animation logic remains the same...
   useEffect(() => {
     const tl = gsap.timeline();
     const container = containerRef.current;
     const heading = container.querySelector('.main-heading');
-    const form = container.querySelector('form');
     const uploadSection = container.querySelector('.upload-section');
     const preferencesSection = container.querySelector('.preferences-section');
     const submitButton = container.querySelector('.submit-button');
@@ -143,7 +186,7 @@ function ResumeSubmissionApp() {
         </h1>
 
         <form onSubmit={handleSubmit} className="max-w-4xl mx-auto space-y-8 bg-gray-800/50 p-8 rounded-xl backdrop-blur-sm border border-gray-700">
-          <div className="upload-section h-[200px] border-2 border-dashed border-gray-500 rounded-xl p-6 text-center">
+          <div className="upload-section relative h-[200px] border-2 border-dashed border-gray-500 rounded-xl p-6 text-center">
             <input
               type="file"
               id="resume-upload"
@@ -151,14 +194,35 @@ function ResumeSubmissionApp() {
               accept=".pdf,.doc,.docx"
               onChange={handleFileUpload}
             />
-            <label htmlFor="resume-upload" className="cursor-pointer flex flex-col items-center justify-center h-full">
-              <Upload className="w-12 h-12 text-orange-400 mb-4" />
-              <p className="text-xl font-semibold">
-                {resumeFile ? `Selected: ${resumeFile.name}` : 'Upload Resume (PDF)'}
-              </p>
+            <label 
+              htmlFor="resume-upload" 
+              className="cursor-pointer flex flex-col items-center justify-center h-full"
+            >
+              {resumeFile ? (
+                <>
+                  <CheckCircle className="w-12 h-12 text-green-400 mb-4" />
+                  <p className="text-xl font-semibold text-green-400">
+                    {resumeFile.name}
+                  </p>
+                  <p className="text-sm text-gray-400 mt-2">
+                    Click to change file
+                  </p>
+                </>
+              ) : (
+                <>
+                  <Upload className="w-12 h-12 text-orange-400 mb-4" />
+                  <p className="text-xl font-semibold">
+                    Upload Resume (PDF)
+                  </p>
+                  <p className="text-sm text-gray-400 mt-2">
+                    Max file size: 5MB
+                  </p>
+                </>
+              )}
             </label>
           </div>
 
+          {/* Status message */}
           {submissionStatus.message && (
             <div className={`flex items-center p-4 rounded-lg ${
               submissionStatus.type === 'success' ? 'bg-green-900/50' : 'bg-red-900/50'
@@ -171,6 +235,7 @@ function ResumeSubmissionApp() {
             </div>
           )}
 
+          {/* Job preferences section remains the same */}
           <div className="preferences-section grid md:grid-cols-2 gap-6">
             <div>
               <label className="block mb-2 text-lg font-semibold">Industry</label>
@@ -202,9 +267,15 @@ function ResumeSubmissionApp() {
             </div>
           </div>
 
+          {/* Submit button */}
           <button
             type="submit"
-            className="submit-button group w-full bg-gradient-to-r from-blue-400 to-orange-400 text-black py-4 rounded-lg hover:opacity-90 transition duration-300 text-lg font-bold flex items-center justify-center"
+            disabled={!resumeFile || submissionStatus.type === 'error'}
+            className={`submit-button group w-full py-4 rounded-lg text-lg font-bold flex items-center justify-center transition duration-300
+              ${!resumeFile || submissionStatus.type === 'error'
+                ? 'bg-gray-600 cursor-not-allowed'
+                : 'bg-gradient-to-r from-blue-400 to-orange-400 text-black hover:opacity-90'
+              }`}
           >
             <span>Start Interview Preparation</span>
             <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />

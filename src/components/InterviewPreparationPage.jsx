@@ -76,6 +76,7 @@ function InterviewPreparationPage() {
         } else {
             recognition.start();
             setIsListening(true);
+            setTimerActive(true)
         }
     };
 
@@ -105,8 +106,8 @@ function InterviewPreparationPage() {
                 const data = await response.json();
                 
                 const cleanQuestions = data.questions
-                    .map(q => q.replace(/^(Introduction:|Conclusion:)/i, '').trim())
-                    .filter(q => q.length > 10);
+                    .map(q => q.trim().replace(/^(Introduction:|Conclusion:)/i, ''))
+                    .filter(q => q && q.length > 10);
                 
                 setQuestions(cleanQuestions);
                 setUserAnswers(new Array(cleanQuestions.length).fill(''));
@@ -134,7 +135,7 @@ function InterviewPreparationPage() {
 
     // Reset states when moving to next question
     useEffect(() => {
-        setTimeRemaining(180);
+        setTimeRemaining(120);
         setTimerActive(false);
         setHasStartedTyping(false);
         setDisplayedQuestion('');
@@ -290,7 +291,7 @@ function InterviewPreparationPage() {
 
                     <div className="question-box mb-6 min-h-[120px] md:min-h-[150px] border-2 border-gray-700/50 rounded-xl p-4 bg-gray-900/50">
                         <p className="text-lg text-gray-200">
-                            {displayedQuestion}
+                            Q{displayedQuestion?.replace('undefined', '')}
                             {isTypingQuestion && <span className="animate-pulse">|</span>}
                         </p>
                     </div>
