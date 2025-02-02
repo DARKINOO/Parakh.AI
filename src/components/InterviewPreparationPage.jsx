@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Bot, Clock, CheckCircle, Mic, MicOff } from 'lucide-react';
+import { Bot, Clock, CheckCircle, Mic, MicOff, Brain, ArrowRight } from 'lucide-react';
 import { useLoading } from '../context/LoadingProvider'
+import { gsap } from 'gsap';
 
 function InterviewPreparationPage() {
     const { resumeId } = useParams();
     const navigate = useNavigate();
     const { startLoading, stopLoading } = useLoading();
+    const containerRef = useRef(null);
 
     // State Management
     const [questions, setQuestions] = useState([]);
@@ -139,6 +141,43 @@ function InterviewPreparationPage() {
         setIsTypingQuestion(true);
     }, [currentQuestionIndex]);
 
+    useEffect(() => {
+        const tl = gsap.timeline();
+        const container = containerRef.current;
+        
+        if (container) {
+            const header = container.querySelector('.interview-header');
+            const questionBox = container.querySelector('.question-box');
+            const answerBox = container.querySelector('.answer-box');
+            const button = container.querySelector('.action-button');
+
+            tl.fromTo(container,
+                { opacity: 0, y: 30 },
+                { duration: 1, opacity: 1, y: 0, ease: "power3.out" }
+            )
+            .fromTo(header,
+                { opacity: 0, x: -30 },
+                { duration: 0.6, opacity: 1, x: 0, ease: "back.out(1.7)" },
+                "-=0.5"
+            )
+            .fromTo(questionBox,
+                { opacity: 0, scale: 0.95 },
+                { duration: 0.6, opacity: 1, scale: 1, ease: "power2.out" },
+                "-=0.3"
+            )
+            .fromTo(answerBox,
+                { opacity: 0, y: 20 },
+                { duration: 0.6, opacity: 1, y: 0, ease: "power2.out" },
+                "-=0.3"
+            )
+            .fromTo(button,
+                { opacity: 0, scale: 0.9 },
+                { duration: 0.5, opacity: 1, scale: 1, ease: "elastic.out(1, 0.7)" },
+                "-=0.2"
+            );
+        }
+    }, []);
+
     const handleAnswerChange = (e) => {
         setCurrentAnswer(e.target.value);
         
@@ -231,73 +270,76 @@ function InterviewPreparationPage() {
     };
 
     return (
-        <div className="w-full p-6 bg-black h-screen flex items-center justify-center">
-            <div className="bg-gray-900 rounded-2xl shadow-2xl text-white p-8 w-full">
-                <div className="flex justify-between items-center mb-6">
-                    <div className="flex items-center">
-                        <Bot className="text-blue-500 w-12 h-12 mr-4 animate-pulse" />
-                        <h2 className="text-2xl font-bold text-white">
-                            Question {currentQuestionIndex + 1}/{questions.length}
-                        </h2>
+        <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black py-12 md:py-4 px-4 md:px-6 lg:px-8">
+            <div ref={containerRef} className="max-w-4xl mx-auto">
+                <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-2xl shadow-xl p-6 md:p-4">
+                    <div className="interview-header flex flex-col md:flex-row justify-between items-center gap-4 mb-6 md:mb-3">
+                        <div className="flex items-center gap-4">
+                            <Bot className="text-blue-400 w-8 h-8 md:w-12 md:h-12 animate-pulse" />
+                            <div>
+                                <h2 className="text-xl md:text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-orange-400">
+                                    Interview Session
+                                </h2>
+                                <p className="text-gray-400">
+                                    Question {currentQuestionIndex + 1}/{questions.length}
+                                </p>
+                            </div>
+                        </div>
+                        {(hasStartedTyping || timerActive) && <TimerCircle timeRemaining={timeRemaining} />}
                     </div>
-                    {(hasStartedTyping || timerActive) && <TimerCircle timeRemaining={timeRemaining} />}
-                </div>
 
-                <div className="mb-6 h-48 w-[100%] overflow-y-auto border-2 border-blue-100 rounded-lg p-4">
-                    <p className="text-lg text-white">
-                        {displayedQuestion}
-                        {isTypingQuestion && <span className="animate-blink text-white">|</span>}
-                    </p>
-                </div>
+                    <div className="question-box mb-6 min-h-[120px] md:min-h-[150px] border-2 border-gray-700/50 rounded-xl p-4 bg-gray-900/50">
+                        <p className="text-lg text-gray-200">
+                            {displayedQuestion}
+                            {isTypingQuestion && <span className="animate-pulse">|</span>}
+                        </p>
+                    </div>
 
-                <div className="relative">
-                    <textarea 
-                        className="w-full p-4 border-2 border-blue-200 rounded-lg min-h-[200px] mb-6 focus:ring-2 focus:ring-blue-400 transition-all pr-12"
-                        placeholder="Type your answer here..."
-                        value={currentAnswer}
-                        onChange={handleAnswerChange}
+                    <div className="answer-box relative mb-6">
+                        <textarea 
+                            className="w-full p-4 bg-gray-900/80 border-2 border-gray-700/50 rounded-xl min-h-[200px] text-gray-200 focus:ring-2 focus:ring-orange-400 transition-all pr-12 resize-none"
+                            placeholder="Type your answer here..."
+                            value={currentAnswer}
+                            onChange={handleAnswerChange}
+                            disabled={isTypingQuestion}
+                        />
+                        <button
+                            onClick={toggleListening}
+                            disabled={isTypingQuestion}
+                            className={`absolute right-3 top-3 p-2 rounded-full transition-all ${
+                                isListening 
+                                    ? 'bg-red-500/80 hover:bg-red-600' 
+                                    : 'bg-blue-500/80 hover:bg-blue-600'
+                            }`}
+                        >
+                            {isListening ? (
+                                <MicOff className="h-5 w-5 text-white" />
+                            ) : (
+                                <Mic className="h-5 w-5 text-white" />
+                            )}
+                        </button>
+                    </div>
+
+                    <button 
+                        onClick={handleNextQuestionOrSubmit}
                         disabled={isTypingQuestion}
-                    />
-                    <button
-                        onClick={toggleListening}
-                        disabled={isTypingQuestion}
-                        className={`absolute right-3 top-3 p-2 rounded-full transition-all ${
-                            isListening 
-                                ? 'bg-red-500 hover:bg-red-600' 
-                                : 'bg-blue-500 hover:bg-blue-600'
+                        className={`action-button w-full group flex items-center justify-center gap-2 py-4 rounded-xl font-bold transition-all ${
+                            currentQuestionIndex < questions.length - 1
+                                ? 'bg-gradient-to-r from-blue-400 to-orange-400 hover:opacity-90'
+                                : 'bg-gradient-to-r from-green-400 to-emerald-500 hover:opacity-90'
                         }`}
                     >
-                        {isListening ? (
-                            <MicOff className="h-5 w-5 text-white" />
-                        ) : (
-                            <Mic className="h-5 w-5 text-white" />
-                        )}
+                        <span>
+                            {currentQuestionIndex < questions.length - 1 
+                                ? 'Next Question' 
+                                : 'Complete Interview'}
+                        </span>
+                        <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                     </button>
-                </div>
-
-                <div className="flex space-x-4">
-                    {currentQuestionIndex < questions.length - 1 ? (
-                        <button 
-                            onClick={handleNextQuestionOrSubmit}
-                            disabled={isTypingQuestion}
-                            className="flex-1 bg-blue-500 text-white font-bold py-3 rounded-lg hover:bg-blue-600 transition-colors"
-                        >
-                            Next Question
-                        </button>
-                    ) : (
-                        <button 
-                            onClick={handleNextQuestionOrSubmit}
-                            disabled={isTypingQuestion}
-                            className="flex-1 bg-green-500 text-white py-3 rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50"
-                        >
-                            Complete Interview
-                        </button>
-                    )}
                 </div>
             </div>
         </div>
     );
 }
-
 
 export default InterviewPreparationPage;
