@@ -102,7 +102,7 @@ function InterviewPreparationPage() {
     useEffect(() => {
         const fetchInterviewQuestions = async () => {
             try {
-                const response = await fetch(`/api/resume/interview-questions/${resumeId}`);
+                const response = await fetch(`${import.meta.env.VITE_BASE_URL_AUTH}/api/resume/interview-questions/${resumeId}`);
                 const data = await response.json();
                 
                 const cleanQuestions = data.questions
@@ -245,7 +245,7 @@ function InterviewPreparationPage() {
             const finalAnswers = [...userAnswers];
             finalAnswers[currentQuestionIndex] = currentAnswer || '';
 
-            const response = await fetch('/api/resume/submit-full-interview', {
+            const response = await fetch(`${import.meta.env.VITE_BASE_URL_AUTH}/api/resume/submit-full-interview`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

@@ -103,7 +103,7 @@ function ResumeSubmissionApp() {
     try {
       startLoading();
       
-      const response = await fetch('/api/resume/submit-resume', {
+      const response = await fetch(`${import.meta.env.VITE_BASE_URL_AUTH}/api/resume/submit-resume`, {
         method: 'POST',
         body: formData,
         credentials: 'include',
