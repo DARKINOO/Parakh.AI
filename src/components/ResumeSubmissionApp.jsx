@@ -128,7 +128,7 @@ function ResumeSubmissionApp() {
 
       // Redirect to interview page
       if (data.resumeId) {
-        window.location.href = `https://parakhai-1.vercel.app/interview/${data.resumeId}`;
+        window.location.href = `/interview/${data.resumeId}`;
       }
 
     } catch (error) {
