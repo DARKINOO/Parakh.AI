@@ -2,10 +2,12 @@ import React, { useState, useRef, useEffect } from 'react';
 import { FileText, Upload, CheckCircle, AlertCircle, ArrowRight } from 'lucide-react';
 import { gsap } from 'gsap';
 import { useLoading } from '../context/LoadingProvider';
+import { useNavigate } from 'react-router-dom';
 
 function ResumeSubmissionApp() {
   const { startLoading, stopLoading } = useLoading();
   const [resumeFile, setResumeFile] = useState(null);
+  const navigate = useNavigate();
   const [previewUrl, setPreviewUrl] = useState('');
   const [uploadProgress, setUploadProgress] = useState(0);
   const [jobPreferences, setJobPreferences] = useState({
