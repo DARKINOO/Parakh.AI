@@ -128,7 +128,7 @@ function ResumeSubmissionApp() {
 
       // Redirect to interview page
       if (data.resumeId) {
-        window.location.href = `/interview/${data.resumeId}`;
+        navigate(`/interview/${data.resumeId}`);
       }
 
     } catch (error) {
